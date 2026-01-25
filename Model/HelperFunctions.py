@@ -8,13 +8,15 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
+import pandas as pd
+
 from datetime import date
 from tqdm import tqdm
 import os 
 
 
 # Combine two datasets vertically (along columns) using pandas concat function.
-def combine_two_datasets(dataset1,dataset2,dataset3):
+def combine_two_datasets(dataset1,dataset2):
     '''
     Returns a  vertically concatenated dataset.
     Attributes:
@@ -22,8 +24,10 @@ def combine_two_datasets(dataset1,dataset2,dataset3):
     dataset2 - Dataset 2 to be combined
     '''
     
-    data = pd.concat([dataset1,dataset2,dataset3], axis=1)
+    data = pd.concat([dataset1,dataset2], axis=1)
     data = data.loc[:, ~data.columns.duplicated()]
+    # filling nan values with the median of values
+    #data = data.fillna(data.median())
     return data
 
 def split_data(X, y, test_size=0.3, random_state=42):
@@ -35,6 +39,27 @@ def scale_data(X_train, X_test):
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     return X_train_scaled, X_test_scaled, scaler
+
+def scale_data_return_dataframe(dataframe, columns_to_remove): # columns_to_remove is a list of strings
+    scaling_columns = dataframe.columns.drop(columns_to_remove)
+    
+    scaler = StandardScaler()
+    scaled_array = scaler.fit_transform(dataframe[scaling_columns].values)
+    
+    df_scaled_features = pd.DataFrame(
+    scaled_array,
+    columns=scaling_columns,
+    index=dataframe.index # Manter o mesmo índice para fácil concatenação
+    )
+    
+    df_excluded_columns = dataframe[columns_to_remove]
+    
+    full_dataset_scaled = pd.concat(
+    [df_excluded_columns, df_scaled_features], 
+    axis=1
+    )
+    
+    return full_dataset_scaled
 
 
 def evaluate_model(model, X_scaled, y_true, dataset_name="Test"):
