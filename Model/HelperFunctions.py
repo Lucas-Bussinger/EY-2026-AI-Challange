@@ -9,6 +9,7 @@ from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
 import pandas as pd
+import numpy as np
 
 from datetime import date
 from tqdm import tqdm
@@ -26,8 +27,9 @@ def combine_two_datasets(dataset1,dataset2):
     
     data = pd.concat([dataset1,dataset2], axis=1)
     data = data.loc[:, ~data.columns.duplicated()]
-    # filling nan values with the median of values
-    #data = data.fillna(data.median())
+    # filling nan values with the median of values if the column values are numeric
+    numeric_columns = data.select_dtypes(include=['number']).columns
+    data[numeric_columns] = data[numeric_columns].fillna(data[numeric_columns].median())
     return data
 
 def split_data(X, y, test_size=0.3, random_state=42):
@@ -62,14 +64,13 @@ def scale_data_return_dataframe(dataframe, columns_to_remove): # columns_to_remo
     return full_dataset_scaled
 
 
-def evaluate_model(model, X_scaled, y_true, dataset_name="Test"):
-    y_pred = model.predict(X_scaled)
-    r2 = r2_score(y_true, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+def evaluate_model(Y_predicted, y_true, dataset_name="Test"):    
+    r2 = r2_score(y_true, Y_predicted)
+    rmse = np.sqrt(mean_squared_error(y_true, Y_predicted))
     print(f"\n{dataset_name} Evaluation:")
     print(f"R²: {r2:.3f}")
     print(f"RMSE: {rmse:.3f}")
-    return y_pred, r2, rmse
+    return Y_predicted, r2, rmse
 
 
 
