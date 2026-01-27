@@ -61,8 +61,19 @@ def scale_data_return_dataframe(dataframe, columns_to_remove): # columns_to_remo
     axis=1
     )
     
-    return full_dataset_scaled
+    return full_dataset_scaled, scaler
 
+def apply_scale_data_return_dataframe(dataframe, already_defined_scaler): # columns_to_remove is a list of strings
+    
+    scaled_array = already_defined_scaler.transform(dataframe)
+    
+    df_scaled_features = pd.DataFrame(
+    scaled_array,
+    columns=dataframe.columns,
+    index=dataframe.index # Manter o mesmo índice para fácil concatenação
+    )
+    
+    return df_scaled_features
 
 def evaluate_model(Y_predicted, y_true, dataset_name="Test"):    
     r2 = r2_score(y_true, Y_predicted)
