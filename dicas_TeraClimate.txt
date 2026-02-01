@@ -1,0 +1,23 @@
+TeraClimate:
+
+q, ppt, pet, soil, pdsi
+
+1. Índice de Concentração Salina (Aridez Local) - (Pet - Ppt) / (Pet + Ppt + eps)
+2. Eficiência de Escoamento (Runoff Ratio) - Q / (Ppt + eps)
+4. Proxy de Solubilidade Química - (Tmax + Tmin) / 2
+
+
+Dica para o desafio: O TerraClimate é mensal. Se a sua sample_date for 15 de Março, pegue os dados de Março, mas considere também pegar o dado do mês anterior (Fevereiro). Às vezes o que aconteceu no mês passado no clima é o que explica a qualidade da água hoje! (Isso se chama Lag Feature).
+
+Colocar uma featuer a mais em cada linha com esse tempo "atrasado"
+
+
+1º	Q (Runoff)	25%	É o motor principal. Sem escoamento, o Fósforo não chega à água. Ele explica os picos de contaminação.
+
+2º	Ppt (Precipitation)	20%	Controla a diluição. Muita chuva baixa a Condutância; pouca chuva a aumenta.
+
+3º	Pet (Pot. Evapotransp.)	15%	Essencial para Alcalinidade e Condutância. Mede o quanto de água o sistema "quer" perder, concentrando minerais.
+
+4º	Soil (Soil Moisture)	12%	O "filtro". Solo úmido gera runoff imediato. Solo seco absorve a chuva. Define o timing da química da água.
+
+5º	Pdsi (Drought Index)	10%	Dá o contexto histórico. Secas longas mudam permanentemente a Alcalinidade de um rio por anos.
