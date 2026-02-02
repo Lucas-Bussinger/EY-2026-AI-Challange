@@ -1,0 +1,22 @@
+dicas nasdem
+
+
+O NASADEM é um modelo digital de elevação (DEM - Digital Elevation Model) de alta qualidade fornecido pela NASA. No seu projeto de qualidade da água, ele é a peça que falta para o modelo entender o relevo e a geografia de onde a amostra foi coletada.
+Diferente do Landsat ou do ERA5, o NASADEM é um dataset estático. Isso significa que a altitude de um local não muda entre 2011 e 2015. Você só precisa baixar o dado desse local uma única vez.
+Aqui está por que ele é crucial para prever Alcalinidade, Condutância e Fósforo:
+1. O que o NASADEM fornece?
+Elevação (Altitude): A altura em relação ao nível do mar (em metros).
+Slope (Declividade): O quão inclinado é o terreno (calculado a partir da elevação).
+Aspect (Orientação): Para que lado o terreno está "olhando" (Norte, Sul, etc.).
+2. Por que ele é importante para o seu desafio?
+A) Fósforo (O arraste de sedimentos)
+O fósforo não se dissolve facilmente; ele "pega carona" na terra (erosão).
+Em locais com alta declividade (Slope), a chuva corre muito rápido, arrancando mais terra e levando muito mais fósforo para o rio.
+Em locais planos, a água infiltra mais e o fósforo fica retido no solo.
+B) Alcalinidade e Condutância (A química do trajeto)
+A água "aprende" a química do caminho por onde ela passa.
+Altitude: Geralmente, águas em altitudes elevadas (nascentes) são mais puras e têm baixa Condutância. Conforme a água desce para altitudes menores, ela vai acumulando minerais dissolvidos, aumentando a Alcalinidade e a Condutância.
+Acúmulo: Se a sua Latitude/Longitude está em uma "depressão" (ponto mais baixo do relevo local), ela provavelmente recebe o esgoto e os fertilizantes de todas as fazendas ao redor.
+3. Características Técnicas
+Resolução: 30 metros por pixel (exatamente a mesma resolução do Landsat!). Isso é perfeito, pois o seu "olhar" de satélite terá o mesmo tamanho do seu "olhar" de relevo.
+Origem: Ele é uma evolução do antigo SRTM (missão do ônibus espacial), mas corrigido com dados de laser (ICESat) para ser muito mais preciso em termos de altura.

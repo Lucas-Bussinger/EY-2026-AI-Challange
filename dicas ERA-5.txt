@@ -1,0 +1,34 @@
+dicas ERA-5
+
+Rank	Banda	Por que é vital para Água?
+1º	total_precipitation	Essencial para DRP e Condutância. Define a carga de nutrientes e a diluição.
+
+2º	surface_runoff	A variável mais direta para transporte de sedimentos e fósforo da superfície para o rio.
+
+3º	2m_temperature	Afeta a solubilidade química (Alcalinidade) e atividade biológica.
+
+4º	volumetric_soil_water_layer_1	Umidade do solo (0-7cm). Diz se o solo está pronto para absorver a chuva ou deixá-la escorrer.
+
+5º	total_evaporation	Quanto de água saiu do sistema. Crucial para prever a concentração de sais (Condutância).
+
+6º	potential_evaporation	A demanda de sede da atmosfera. Ajuda a entender o déficit hídrico.
+
+7º	runoff	Inclui o escoamento superficial e o subterrâneo (importante para Alcalinidade/minerais).
+
+8º	2m_dewpoint_temperature	Combinada com a temperatura, permite calcular o VPD (quão seco o ar está).
+
+
+
+
+Chuva Acumulada (7 dias): A soma de total_precipitation nos 7 dias anteriores à sample_date. Este será provavelmente o seu melhor preditor para Fósforo.
+
+Intensidade da Chuva: total_precipitation / (tempo_de_chuva). Chuvas intensas causam mais erosão do que chuvas finas.
+
+Índice de Saturação: volumetric_soil_water_layer_1 / (capacidade_de_campo). Indica se o solo está "encharcado".
+
+Déficit de Evaporação: potential_evaporation - total_evaporation. Ótimo para prever picos de Condutância Elétrica (concentração de sais).
+
+
+
+ESSE VAI SER DE LONGE O DATASET MAIS COMPLICADO PRA BAIXAR
+
