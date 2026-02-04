@@ -178,8 +178,24 @@ class DataOrganizer:
     def get_feature_columns(self):
         return self.feature_columns
     
+    def build_get_submission_dataset(self, predicted_values_dict: dict):
+        if not self.training_loaded:
+            raise Exception("Training data must be loaded before building submission dataset.")
+        
+        loc_and_time_data = pd.DataFrame({
+            'Latitude': self.full_submission_dataset['Latitude'],
+            'Longitude': self.full_submission_dataset['Longitude'],
+            'Sample Date': self.full_submission_dataset['Sample Date'],
+        })
+        
+        predicted_values_pd = pd.DataFrame(predicted_values)
+        
+        return_pd = pd.concat([loc_and_time_data, predicted_values_pd], axis=1)
+        
+        return return_pd
+    
     def add_cyclical_features(self, data_variable, date_column='Sample Date'):
-        data_variable[date_column] = pd.to_datetime(data_variable[date_column], dayfirst=True, format="%Y-%m-%d")
+        data_variable[date_column] = pd.to_datetime(data_variable[date_column], dayfirst=True, format="%d-%m-%Y")
         
         #month of year
         data_variable['MonthOfYear'] = data_variable[date_column].dt.month
