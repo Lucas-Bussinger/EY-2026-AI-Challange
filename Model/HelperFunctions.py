@@ -152,8 +152,6 @@ class DataOrganizer:
         self.target_training_datasets = {target: self.full_training_dataset[target] for target in self.target_columns}
         self.training_loaded = True
     
-    
-    
     def load_submission_data(self, csv_files: list):
         
         if not self.training_loaded:
@@ -169,7 +167,6 @@ class DataOrganizer:
         
         ## adding cyclical characterisrics to submission data
         self.full_submission_dataset = self.add_cyclical_features(self.full_submission_dataset, date_column='Sample Date')
-        
         self.feature_submission_dataset = self.full_submission_dataset[self.feature_columns]
 
     def get_training_dataset(self):
@@ -177,6 +174,9 @@ class DataOrganizer:
     
     def get_submission_dataset(self):
         return self.feature_submission_dataset
+    
+    def get_feature_columns(self):
+        return self.feature_columns
     
     def add_cyclical_features(self, data_variable, date_column='Sample Date'):
         data_variable[date_column] = pd.to_datetime(data_variable[date_column], dayfirst=True, format="%Y-%m-%d")
