@@ -29,7 +29,7 @@ def combine_two_datasets(dataset1,dataset2):
     data = data.loc[:, ~data.columns.duplicated()]
     # filling nan values with the median of values if the column values are numeric
     numeric_columns = data.select_dtypes(include=['number']).columns
-    data[numeric_columns] = data[numeric_columns].fillna(data[numeric_columns].median())
+    data[numeric_columns] = data[numeric_columns]#.fillna(data[numeric_columns].median())
     return data
 
 def split_data(X, y, test_size=0.3, random_state=42):
@@ -116,3 +116,79 @@ def run_pipeline(X, y, param_name="Parameter"):
         "RMSE_Test": rmse_test
     }
     return model, scaler, pd.DataFrame([results])
+
+class DataOrganizer:
+    def __init__(self, target_columns:list):
+        # explained varaibles in the last position fo the list
+        self.training_loaded = False
+        
+        self.full_training_dataset = None
+        self.full_submission_dataset = None
+        
+        self.feature_columns = None
+        self.target_columns = target_columns
+        
+        self.feature_training_dataset = None
+        self.target_training_datasets = {}
+        
+        self.feature_submission_dataset = None
+        
+    def load_training_data(self, csv_files: list, drop_from_feature_columns: list):
+        
+        csv_data = []
+        for file in csv_files:
+            data = pd.read_csv(file)
+            csv_data.append(data)
+        
+        for data in csv_data:
+            self.full_training_dataset = combine_two_datasets(self.full_training_dataset, data)
+        
+        ## adding cyclical characterisrics to training data
+        self.full_training_dataset = self.add_cyclical_features(self.full_training_dataset, date_column='Sample Date')
+        
+        self.feature_columns = [col for col in self.full_training_dataset.columns if col not in self.target_columns + drop_from_feature_columns + ["Year", "MonthOfYear"]]
+        
+        self.feature_training_dataset = self.full_training_dataset[self.feature_columns]
+        self.target_training_datasets = {target: self.full_training_dataset[target] for target in self.target_columns}
+        self.training_loaded = True
+    
+    
+    
+    def load_submission_data(self, csv_files: list):
+        
+        if not self.training_loaded:
+            raise Exception("Training data must be loaded before loading submission data.")
+        
+        csv_data = []
+        for file in csv_files:
+            data = pd.read_csv(file)
+            csv_data.append(data)
+        
+        for data in csv_data:
+            self.full_submission_dataset = combine_two_datasets(self.full_submission_dataset, data)
+        
+        ## adding cyclical characterisrics to submission data
+        self.full_submission_dataset = self.add_cyclical_features(self.full_submission_dataset, date_column='Sample Date')
+        
+        self.feature_submission_dataset = self.full_submission_dataset[self.feature_columns]
+
+    def get_training_dataset(self):
+        return self.feature_training_dataset, self.target_training_datasets
+    
+    def get_submission_dataset(self):
+        return self.feature_submission_dataset
+    
+    def add_cyclical_features(self, data_variable, date_column='Sample Date'):
+        data_variable[date_column] = pd.to_datetime(data_variable[date_column], dayfirst=True, format="%Y-%m-%d")
+        
+        #month of year
+        data_variable['MonthOfYear'] = data_variable[date_column].dt.month
+        data_variable['month_sin'] = np.sin(2 * np.pi * data_variable['MonthOfYear'] / 12)
+
+        #year cycle
+        data_variable['Year'] = data_variable[date_column].dt.year
+        data_variable['year_sin'] = np.sin(2 * np.pi * (data_variable['Year'] - data_variable['Year'].min()) / 5)
+        
+        return data_variable
+    
+    
