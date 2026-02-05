@@ -178,6 +178,9 @@ class DataOrganizer:
     def get_feature_columns(self):
         return self.feature_columns
     
+    def get_full_training_dataset(self):
+        return self.full_training_dataset
+    
     def build_get_submission_dataset(self, predicted_values_dict: dict):
         if not self.training_loaded:
             raise Exception("Training data must be loaded before building submission dataset.")
@@ -188,7 +191,7 @@ class DataOrganizer:
             'Sample Date': self.full_submission_dataset['Sample Date'],
         })
         
-        predicted_values_pd = pd.DataFrame(predicted_values)
+        predicted_values_pd = pd.DataFrame(predicted_values_dict)
         
         return_pd = pd.concat([loc_and_time_data, predicted_values_pd], axis=1)
         
