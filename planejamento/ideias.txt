@@ -1,0 +1,11 @@
+1) arredondar valores estáticos para valores não decimais
+
+2) Fazer Train / Test de acordo com o local e não aleatório ( group K fold scikit learn )
+
+3) Transofrmação logarítimica no "Y" ( inverso de normalização ) - more sparse data 
+
+AGRICOLA:
+
+1) inserir ruido artificial ( bom )
+
+

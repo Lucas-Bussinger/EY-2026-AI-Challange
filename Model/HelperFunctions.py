@@ -84,8 +84,6 @@ def evaluate_model(Y_predicted, y_true, dataset_name="Test"):
     return Y_predicted, r2, rmse
 
 
-
-
 # esse aqui é só um modelo, n precisa ser assim nao.
 def run_pipeline(X, y, param_name="Parameter"):
     print(f"\n{'='*60}")
