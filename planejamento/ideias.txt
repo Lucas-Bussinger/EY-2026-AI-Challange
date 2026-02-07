@@ -12,10 +12,14 @@ AGRICOLA:
 
 ---------------------------------------------
 
-Features de Overfitting:
-Slope 'pct_urban', 'pct_water', 'pct_wetlands', 'pct_others','curvature', 'elevation'
+Features de Overfitting para fósforo:
+Slope 'pct_urban', 'pct_water', 'pct_wetlands', 'pct_others','curvature', 'elevation', 'nir', 'swir16'
+
+
+Verificadas:
+'pct_agri', green,'curvature', 'NDMI', 'rain_3d_nasa', 'rain_7d_nasa', 'soil'
 
 
 
-Features de Sinal:
-pet
+Features de Sinal para fosforo:
+pet, month_sin, pct_urban, NDMI, 
