@@ -9,3 +9,13 @@ AGRICOLA:
 1) inserir ruido artificial ( bom )
 
 
+
+---------------------------------------------
+
+Features de Overfitting:
+Slope 'pct_urban', 'pct_water', 'pct_wetlands', 'pct_others','curvature', 'elevation'
+
+
+
+Features de Sinal:
+pet
