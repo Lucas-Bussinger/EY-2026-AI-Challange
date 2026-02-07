@@ -1,0 +1,43 @@
+{
+    "Total Alkalinity": [
+        "swir22",
+        "green",
+        "coastal",
+        "q",
+        "pet",
+        "rain_7d_nasa",
+        "pct_water",
+        "slope",
+        "month_sin"
+    ],
+    "Electrical Conductance": [
+        "swir22",
+        "green",
+        "swir16",
+        "coastal",
+        "blue",
+        "lwir11",
+        "MNDWI",
+        "pet",
+        "tmin",
+        "Runoff_Ratio",
+        "rain_7d_nasa",
+        "pct_agri",
+        "pct_water"
+    ],
+    "Dissolved Reactive Phosphorus": [
+        "swir22",
+        "swir16",
+        "lwir11",
+        "Clorfilia",
+        "NDTI",
+        "NDVI",
+        "q",
+        "pet",
+        "pdsi",
+        "Saline_Index",
+        "rain_7d_nasa",
+        "rain_12d_nasa",
+        "slope"
+    ]
+}

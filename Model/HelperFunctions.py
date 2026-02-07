@@ -8,6 +8,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import GroupShuffleSplit
+
+from sklearn.base import clone
+from tqdm.auto import tqdm
 
 import pandas as pd
 import numpy as np
@@ -91,12 +95,13 @@ def apply_scale_data_return_dataframe(dataframe, already_defined_scaler): # colu
     
     return df_scaled_features
 
-def evaluate_model(Y_predicted, y_true, dataset_name="Test"):    
+def evaluate_model(Y_predicted, y_true, dataset_name="Test", verbose = False):    
     r2 = r2_score(y_true, Y_predicted)
     rmse = np.sqrt(mean_squared_error(y_true, Y_predicted))
-    print(f"\n{dataset_name} Evaluation:")
-    print(f"R²: {r2:.3f}")
-    print(f"RMSE: {rmse:.3f}")
+    if verbose:
+        print(f"\n{dataset_name} Evaluation:")
+        print(f"R²: {r2:.3f}")
+        print(f"RMSE: {rmse:.3f}")
     return Y_predicted, r2, rmse
 
 
@@ -130,6 +135,22 @@ def run_pipeline(X, y, param_name="Parameter"):
         "RMSE_Test": rmse_test
     }
     return model, scaler, pd.DataFrame([results])
+
+def get_real_signals(model, X_val, y_val, target_name):
+    # Calcula a importância por permutação
+    result = permutation_importance(model, X_val, y_val, n_repeats=10, random_state=42, n_jobs=-1)
+    
+    # Cria um DataFrame com os resultados
+    perm_df = pd.DataFrame({
+        'feature': X_val.columns,
+        'importance_mean': result.importances_mean,
+        'importance_std': result.importances_std
+    }).sort_values(by='importance_mean', ascending=False)
+    
+    print(f"--- Sinais Reais para {target_name} ---")
+    print(perm_df.head(10))
+    return perm_df
+
 
 class DataOrganizer:
     def __init__(self, target_columns: list):
@@ -245,3 +266,166 @@ class DataOrganizer:
         data_variable['Year'] = data_variable[date_column].dt.year
         
         return data_variable
+
+
+def get_location_train_test_split(dataHandler: DataOrganizer, test_size=0.2, random_state=42):
+    """
+    Realiza o split de treino e teste garantindo que locais (Lat/Lon) 
+    inteiros fiquem apenas no treino ou apenas no teste.
+    """
+    # 1. Extrair os dados brutos do handler
+    Feature_data, Target_data = dataHandler.get_training_dataset()
+    full_training_data = dataHandler.get_full_training_dataset()
+    
+    # 2. Criar os grupos baseados na localização (Chave única para cada ponto no mapa)
+    groups = full_training_data[["Latitude", "Longitude"]].astype(str).agg('|'.join, axis=1).values 
+    
+    # 3. Configurar o Splitter
+    gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+    
+    # Como as coordenadas são as mesmas para todos os targets, 
+    # podemos gerar os índices uma única vez para garantir consistência.
+    # Usamos o primeiro target da lista como referência para o split.
+    any_target = list(Target_data.values())[0]
+    train_idx, test_idx = next(gss.split(Feature_data, any_target, groups=groups))
+    
+    # 4. Organizar os dados em um dicionário estruturado
+    split_results = {}
+    
+    for target_name in Target_data.keys():
+        split_results[target_name] = {
+            'X_train': Feature_data.iloc[train_idx],
+            'X_test':  Feature_data.iloc[test_idx],
+            'Y_train': Target_data[target_name].iloc[train_idx],
+            'Y_test':  Target_data[target_name].iloc[test_idx]
+        }
+    
+    print(f"✅ Split concluído: {len(train_idx)} amostras para treino, {len(test_idx)} para teste.")
+    return split_results
+
+    
+    
+class FeatureClassifier:
+    def __init__(self, csv_training_files: list):
+        self.csv_training_files = csv_training_files
+        self.target_columns = ['Total Alkalinity', 'Electrical Conductance', 'Dissolved Reactive Phosphorus']
+        
+        # 1. Carregar TODOS os dados UMA ÚNICA VEZ (Performance)
+        # Passamos drop=[] para carregar tudo o que estiver disponível
+        print("📥 Carregando todos os dados para memória (isso acontece só uma vez)...")
+        self.dataHandler = DataOrganizer(self.target_columns)
+        self.dataHandler.load_training_data(self.csv_training_files, drop_from_feature_columns=[], scale=False)
+        
+        # Lista total de candidatas (todas as features carregadas)
+        self.all_possible_features = self.dataHandler.get_feature_columns()
+        self.model = None
+        
+        # 2. Já deixar os splits prontos para ganhar tempo
+        # Usamos sua função de split por localização para garantir honestidade no teste
+        #print("✂️ Gerando splits de treino e teste por localização...")
+        self.splits = get_location_train_test_split(self.dataHandler, test_size=0.2)
+    
+    def define_model(self, model):
+        self.model = model
+    
+    def classify_features_per_target(self, feature_to_start='pet'):
+        
+        if self.model is None:
+            raise Exception("❌ Erro: Defina o modelo usando define_model() antes.")
+
+        final_results = {target: [] for target in self.target_columns}
+        
+        for target in self.target_columns:
+            #print(f"\n🎯 Iniciando seleção para TARGET: {target}")
+            
+            # Recuperar os dados já divididos deste target
+            X_train_full = self.splits[target]['X_train']
+            X_test_full  = self.splits[target]['X_test']
+            y_train      = self.splits[target]['Y_train']
+            y_test       = self.splits[target]['Y_test']
+            
+            # Lista de features que decidimos MANTER (começa só com a inicial)
+            # Se a feature inicial não existir, começamos vazio
+            if feature_to_start in self.all_possible_features:
+                features_to_maintain = [feature_to_start]
+            else:
+                features_to_maintain = []
+            
+            # Avaliar a performance inicial (Baseline)
+            best_r2 = -np.inf
+            
+            if features_to_maintain:
+                model_clone = clone(self.model)
+                model_clone.fit(X_train_full[features_to_maintain], y_train)
+                y_pred = model_clone.predict(X_test_full[features_to_maintain])
+                _, best_r2, _ = evaluate_model(y_pred, y_test, dataset_name="Baseline")
+                #print(f"   🔹 Base R² com [{feature_to_start}]: {best_r2:.4f}")
+            
+            # Lista de candidatas (Tudo que não está na lista de manter)
+            candidates = [f for f in self.all_possible_features if f not in features_to_maintain]
+            
+            # Loop de Teste (Forward Selection)
+            for feature in tqdm(candidates):
+                
+                # A lógica do DROP invertida: 
+                # Em vez de dropar tudo menos X, selecionamos apenas (Manter + Candidata)
+                current_features = features_to_maintain + [feature]
+                
+                # Seleção das colunas (Simula o drop instantaneamente)
+                X_train_subset = X_train_full[current_features]
+                X_test_subset = X_test_full[current_features]
+
+                # Treinar
+                model_clone = clone(self.model) # Reseta o modelo
+                model_clone.fit(X_train_subset, y_train)
+                
+                # Prever e Avaliar
+                y_pred = model_clone.predict(X_test_subset)
+                
+                # Aqui usamos o r2_score do sklearn ou sua função evaluate_model
+                # Supondo que evaluate_model retorna (pred, r2, rmse)
+                _, r2_test, _ = evaluate_model(y_pred, y_test, dataset_name="Test")
+                
+                # A Lógica de Decisão:
+                # Se o R2 subiu -> SINAL REAL -> Mantém a feature (para de dropar)
+                # Se o R2 caiu ou igualou -> RUÍDO -> Não adiciona (continua dropada)
+                if r2_test > best_r2:
+                    features_to_maintain.append(feature)
+                    best_r2 = r2_test
+                    #print(f"   ✅ + {feature} (R²: {best_r2:.4f})")
+                
+            # Salvar o resultado final
+            final_results[target] = features_to_maintain
+            print(f"🏁 Seleção Finalizada para {target}")
+            print(f"   Features Mantidas: {len(features_to_maintain)}/{len(self.all_possible_features)}")
+            print(f"   Melhor R²: {best_r2:.4f}")
+            print(f"   Lista: {features_to_maintain}")
+
+        return final_results
+    
+### Exemplo de uso:
+'''
+csv_files = [
+    '../Datasets/landsat_features_more_bands_train.csv',
+    '../Datasets/terraclimate_features_more_bands_training.csv',
+    # ... adicione todos os seus arquivos aqui
+]
+
+# 2. Instanciar o classificador
+classifier = FeatureClassifier(csv_training_files=csv_files)
+
+# 3. Definir um modelo rápido para o teste (Random Forest é ótimo para isso)
+from sklearn.ensemble import RandomForestRegressor
+rf_selector = RandomForestRegressor(n_estimators=50, max_depth=5, n_jobs=-1, random_state=42)
+
+classifier.define_model(rf_selector)
+
+# 4. Rodar a seleção
+# Ele vai te retornar um dicionário com as melhores features para cada target
+best_features_dict = classifier.classify_features_per_target(feature_to_start='swir22')
+
+# 5. Ver o resultado
+print(best_features_dict)
+
+'''
+            
