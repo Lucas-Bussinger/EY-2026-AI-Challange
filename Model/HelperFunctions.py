@@ -310,25 +310,26 @@ class FeatureClassifier:
         self.csv_training_files = csv_training_files
         self.target_columns = ['Total Alkalinity', 'Electrical Conductance', 'Dissolved Reactive Phosphorus']
         
-        # 1. Carregar TODOS os dados UMA ÚNICA VEZ (Performance)
-        # Passamos drop=[] para carregar tudo o que estiver disponível
-        print("📥 Carregando todos os dados para memória (isso acontece só uma vez)...")
+        print("📥 Carregando todos os dados para memória...")
         self.dataHandler = DataOrganizer(self.target_columns)
         self.dataHandler.load_training_data(self.csv_training_files, drop_from_feature_columns=[], scale=False)
         
-        # Lista total de candidatas (todas as features carregadas)
         self.all_possible_features = self.dataHandler.get_feature_columns()
         self.model = None
         
-        # 2. Já deixar os splits prontos para ganhar tempo
-        # Usamos sua função de split por localização para garantir honestidade no teste
-        #print("✂️ Gerando splits de treino e teste por localização...")
+        # Splits
         self.splits = get_location_train_test_split(self.dataHandler, test_size=0.2)
     
     def define_model(self, model):
         self.model = model
     
-    def classify_features_per_target(self, feature_to_start='pet'):
+    def classify_features_per_target(self, feature_to_start='pet', penalty_weight=0.5):
+        """
+        penalty_weight: Quanto penalizar o overfitting.
+        0.0 = Só importa o Teste (seu código antigo).
+        0.5 = Balanceado (Recomendado).
+        1.0 = Conservador (Prioriza modelos onde Treino e Teste são iguais).
+        """
         
         if self.model is None:
             raise Exception("❌ Erro: Defina o modelo usando define_model() antes.")
@@ -336,69 +337,81 @@ class FeatureClassifier:
         final_results = {target: [] for target in self.target_columns}
         
         for target in self.target_columns:
-            #print(f"\n🎯 Iniciando seleção para TARGET: {target}")
+            print(f"\n🎯 Seleção para {target} (Penalidade: {penalty_weight})")
             
-            # Recuperar os dados já divididos deste target
             X_train_full = self.splits[target]['X_train']
             X_test_full  = self.splits[target]['X_test']
             y_train      = self.splits[target]['Y_train']
             y_test       = self.splits[target]['Y_test']
             
-            # Lista de features que decidimos MANTER (começa só com a inicial)
-            # Se a feature inicial não existir, começamos vazio
+            # --- CONFIGURAÇÃO INICIAL ---
             if feature_to_start in self.all_possible_features:
                 features_to_maintain = [feature_to_start]
             else:
                 features_to_maintain = []
             
-            # Avaliar a performance inicial (Baseline)
-            best_r2 = -np.inf
+            best_quality_score = -np.inf
+            best_r2_test_ref = -np.inf
             
+            # --- AVALIAR BASELINE (Feature Inicial) ---
             if features_to_maintain:
                 model_clone = clone(self.model)
                 model_clone.fit(X_train_full[features_to_maintain], y_train)
-                y_pred = model_clone.predict(X_test_full[features_to_maintain])
-                _, best_r2, _ = evaluate_model(y_pred, y_test, dataset_name="Baseline")
-                #print(f"   🔹 Base R² com [{feature_to_start}]: {best_r2:.4f}")
+                
+                # Predição Treino (Para calcular o GAP)
+                y_pred_train = model_clone.predict(X_train_full[features_to_maintain])
+                _, r2_train, _ = evaluate_model(y_pred_train, y_train, dataset_name="Train", verbose=False)
+                
+                # Predição Teste
+                y_pred_test = model_clone.predict(X_test_full[features_to_maintain])
+                _, r2_test, _ = evaluate_model(y_pred_test, y_test, dataset_name="Baseline", verbose=False)
+                
+                # CÁLCULO DA MÉTRICA COMPOSTA
+                gap = abs(r2_train - r2_test)
+                best_quality_score = r2_test - (penalty_weight * gap)
+                best_r2_test_ref = r2_test # Apenas para referência visual
+                
+                print(f"   🔹 Base Score: {best_quality_score:.4f} (R2 Test: {r2_test:.3f} | Gap: {gap:.3f})")
             
-            # Lista de candidatas (Tudo que não está na lista de manter)
             candidates = [f for f in self.all_possible_features if f not in features_to_maintain]
             
-            # Loop de Teste (Forward Selection)
+            # --- LOOP DE SELEÇÃO ---
             for feature in tqdm(candidates):
-                
-                # A lógica do DROP invertida: 
-                # Em vez de dropar tudo menos X, selecionamos apenas (Manter + Candidata)
                 current_features = features_to_maintain + [feature]
                 
-                # Seleção das colunas (Simula o drop instantaneamente)
                 X_train_subset = X_train_full[current_features]
                 X_test_subset = X_test_full[current_features]
 
-                # Treinar
-                model_clone = clone(self.model) # Reseta o modelo
+                model_clone = clone(self.model)
                 model_clone.fit(X_train_subset, y_train)
                 
-                # Prever e Avaliar
-                y_pred = model_clone.predict(X_test_subset)
+                # 1. Avaliar Treino (Necessário para ver Overfitting)
+                y_train_pred = model_clone.predict(X_train_subset)
+                # (Supondo que evaluate_model retorna y_pred, r2, rmse)
+                _, r2_train, _ = evaluate_model(y_train_pred, y_train, dataset_name="T", verbose=False)
                 
-                # Aqui usamos o r2_score do sklearn ou sua função evaluate_model
-                # Supondo que evaluate_model retorna (pred, r2, rmse)
-                _, r2_test, _ = evaluate_model(y_pred, y_test, dataset_name="Test")
+                # 2. Avaliar Teste
+                y_test_pred = model_clone.predict(X_test_subset)
+                _, r2_test, _ = evaluate_model(y_test_pred, y_test, dataset_name="T", verbose=False)
                 
-                # A Lógica de Decisão:
-                # Se o R2 subiu -> SINAL REAL -> Mantém a feature (para de dropar)
-                # Se o R2 caiu ou igualou -> RUÍDO -> Não adiciona (continua dropada)
-                if r2_test > best_r2:
+                # 3. Calcular Score Penalizado
+                # Se o treino for muito melhor que o teste, o gap cresce e o score cai
+                gap = abs(r2_train - r2_test)
+                current_quality_score = r2_test - (penalty_weight * gap)
+                
+                # 4. Decisão
+                if current_quality_score > best_quality_score:
                     features_to_maintain.append(feature)
-                    best_r2 = r2_test
-                    #print(f"   ✅ + {feature} (R²: {best_r2:.4f})")
+                    best_quality_score = current_quality_score
+                    best_r2_test_ref = r2_test
+                    # Opcional: Mostrar quando melhora
+                    # print(f"   ✅ + {feature} (Score: {current_quality_score:.4f} | R2: {r2_test:.3f} | Gap: {gap:.3f})")
                 
-            # Salvar o resultado final
             final_results[target] = features_to_maintain
-            print(f"🏁 Seleção Finalizada para {target}")
-            print(f"   Features Mantidas: {len(features_to_maintain)}/{len(self.all_possible_features)}")
-            print(f"   Melhor R²: {best_r2:.4f}")
+            print(f"🏁 Finalizado para {target}")
+            print(f"   Features: {len(features_to_maintain)}")
+            print(f"   Melhor Score Penalizado: {best_quality_score:.4f}")
+            print(f"   R² Teste Final: {best_r2_test_ref:.4f}")
             print(f"   Lista: {features_to_maintain}")
 
         return final_results
